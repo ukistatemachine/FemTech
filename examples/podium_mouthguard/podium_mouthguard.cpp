@@ -13,6 +13,7 @@
 #include <string>
 #include <cstdlib>
 #include <ctime>
+#include <vector>
 
 #include <boost/numeric/odeint.hpp>
 
@@ -41,7 +42,7 @@ bool ExplicitDynamic = true;
 bool reducedIntegration = true;
 
 double dynamicDamping = 0.000;
-double ExplicitTimeStepReduction = 0.8;
+double ExplicitTimeStepReduction = 0.2;
 double FailureTimeStep = 1e-8; // Set for max runtime of around 5 hrs on aws
 double MaxTimeStep = 1e-5;
 int nPlotSteps = 50;
@@ -279,6 +280,12 @@ int main(int argc, char **argv) {
 
 
   /* Step-4: Time loop starts....*/
+  // Previous prescribed skull velocity
+  std::vector<double> previousSkullVelocity(nDOF, 0.0);
+
+  double previousSkullTime = 0.0;
+  bool havePreviousSkullVelocity = false;
+  
   // while ((Time < tMax) && !exceedFlag) {
   while (Time < tMax) {
     t_n = Time;
@@ -288,6 +295,8 @@ int main(int argc, char **argv) {
 
     /* Step 6 Enforce boundary Conditions */
     ApplyAccBoundaryConditions();
+    // boundary velocity is prescribed at the half timsetep
+    double currentSkullTime = t_n + 0.5*dt;
     Time = t_np1; /*Update the time by adding full time step */
     /* Step 5 from Belytschko Box 6.1 - Update velocity */
     for (int i = 0; i < nDOF; i++) {
@@ -313,7 +322,37 @@ int main(int argc, char **argv) {
     /* Step - 9 from Belytschko Box 6.1 - Calculate Accelerations */
     CalculateAccelerations(); // Calculating the new accelerations from total
                               // nodal forces.
+    
+    // Calculate kinematically consistent acceleration at skull nodes
+    if (!havePreviousSkullVelocity) {
+        // No previous half-step velocity available
+        for (int i = 0; i < nDOF; ++i) {
+            if (boundary[i]) {
+                accelerations[i] = 0.0;
+            }
+        }
+    } else {
+        double deltaTime = currentSkullTime - previousSkullTime;
+        if (deltaTime > 0.0) {
+            for (int i = 0; i < nDOF; ++i) {
+                if (boundary[i]) {
+                    accelerations[i] =
+                        (velocities_half[i] - previousSkullVelocity[i])
+                        / deltaTime;
+                }
+            }
+        }
+    }
 
+    // Store current prescribed velocity
+    for (int i = 0; i < nDOF; ++i) {
+        if (boundary[i]) {
+            previousSkullVelocity[i] = velocities_half[i];
+        }
+    }
+    previousSkullTime = currentSkullTime;
+    havePreviousSkullVelocity = true;
+    
     /** Step- 10 - Second Partial Update of Nodal Velocities */
     // for (int i = 0; i < nDOF; i++) {
     //   velocities[i] = velocities_half[i] + dtby2 * accelerations[i];
