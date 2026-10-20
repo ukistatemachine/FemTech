@@ -113,6 +113,22 @@ void WriteVTU(const char* FileName, int step, int** intCellData /*= NULL*/, \
 			fprintf(fp,"\n");
 	}
 	fprintf(fp,"\t\t\t\t</DataArray>\n");
+  
+  // Write nodal velocities
+  fprintf(fp,"\t\t\t\t<DataArray type=\"Float64\" Name=\"Velocities\" "
+                  "NumberOfComponents=\"%d\" ComponentName0=\"X\" "
+                  "ComponentName1=\"Y\" ComponentName2=\"Z\" "
+                  "format=\"ascii\">\n",ndim);
+  for(i=0; i<nNodes; i++){
+      fprintf(fp, "\t\t\t\t\t");
+      for (j=0; j<ndim; j++) {
+          fprintf(fp, "%10.8e ", velocities[ndim*i+j]);
+      }
+      // Temporary solution for ndim
+      if(ndim == 2){fprintf(fp,"%10.8e", 0.0);}
+      fprintf(fp, "\n");
+  }
+  fprintf(fp, "\t\t\t\t</DataArray>\n");
 
   // write acceleration
   fprintf(fp,"\t\t\t\t<DataArray type=\"Float64\" Name=\"Accelerations\" "
@@ -254,11 +270,14 @@ void WriteVTU(const char* FileName, int step, int** intCellData /*= NULL*/, \
     fprintf(fp,"\t\t</PCells>\n");
 
 		/*-----------POINT DATA -----------------*/
-		fprintf(fp,"\t\t<PPointData  Vectors=\"Displacements Accelerations Boundary\" >\n");
+		fprintf(fp,"\t\t<PPointData  Vectors=\"Displacements Velocities Accelerations Boundary\" >\n");
 		fprintf(fp,"\t\t\t<PDataArray type=\"Float64\" Name=\"Displacements\" "
                "NumberOfComponents=\"%d\" ComponentName0=\"X\" ComponentName1=\"Y\" "
                "ComponentName2=\"Z\" format=\"ascii\" />\n",ndim);
-   fprintf(fp,"\t\t\t<PDataArray type=\"Float64\" Name=\"Accelerations\" "
+    fprintf(fp,"\t\t\t<PDataArray type=\"Float64\" Name=\"Velocities\" "
+               "NumberOfComponents=\"%d\" ComponentName0=\"X\" ComponentName1=\"Y\" "
+               "ComponentName2=\"Z\" format=\"ascii\" />\n",ndim);
+    fprintf(fp,"\t\t\t<PDataArray type=\"Float64\" Name=\"Accelerations\" "
               "NumberOfComponents=\"%d\" ComponentName0=\"X\" ComponentName1=\"Y\" "
               "ComponentName2=\"Z\" format=\"ascii\" />\n",ndim);
 		fprintf(fp,"\t\t\t<PDataArray type=\"Int32\" Name=\"Boundary\" "
